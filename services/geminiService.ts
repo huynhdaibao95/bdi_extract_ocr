@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { ExtractedRecord } from '../types';
 
@@ -12,11 +13,7 @@ async function fileToGenerativePart(file: File) {
   };
 }
 
-export const extractDataFromImage = async (
-  imageFile: File, 
-  apiKey: string, 
-  prompt: string
-): Promise<{ parsedData: ExtractedRecord[], rawText: string }> => {
+export const extractDataFromImage = async (imageFile: File, apiKey: string, prompt: string): Promise<ExtractedRecord[]> => {
   if (!apiKey) {
     throw new Error("API key is not provided.");
   }
@@ -53,7 +50,7 @@ export const extractDataFromImage = async (
     }
 
     const parsedData = JSON.parse(jsonText) as ExtractedRecord[];
-    return { parsedData, rawText: jsonText };
+    return parsedData;
 
   } catch (error) {
     console.error("Lỗi khi gọi Gemini API hoặc phân tích JSON:", error);
