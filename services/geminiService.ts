@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExtractedRecord } from '../types';
 
@@ -13,11 +12,11 @@ async function fileToGenerativePart(file: File) {
   };
 }
 
-export const extractDataFromImage = async (imageFile: File): Promise<ExtractedRecord[]> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API key is not configured.");
+export const extractDataFromImage = async (imageFile: File, apiKey: string): Promise<ExtractedRecord[]> => {
+  if (!apiKey) {
+    throw new Error("API key is not provided.");
   }
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   const imagePart = await fileToGenerativePart(imageFile);
 

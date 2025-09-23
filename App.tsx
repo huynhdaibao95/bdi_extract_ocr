@@ -7,6 +7,7 @@ import DataTable from './components/DataTable';
 import { LoadingSpinner } from './components/Icons';
 
 const App: React.FC = () => {
+  const [apiKey, setApiKey] = useState<string>('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
@@ -25,13 +26,17 @@ const App: React.FC = () => {
       setError("Vui lòng tải lên một hình ảnh trước.");
       return;
     }
+    if (!apiKey) {
+      setError("Vui lòng nhập Google AI API Key của bạn.");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
     setExtractedData([]);
 
     try {
-      const data = await extractDataFromImage(imageFile);
+      const data = await extractDataFromImage(imageFile, apiKey);
       if (data && data.length > 0) {
         setExtractedData(data);
       } else {
@@ -39,15 +44,11 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      if (err instanceof Error && err.message === "API key is not configured.") {
-        setError("Lỗi cấu hình: Không tìm thấy API key. Vui lòng đảm bảo rằng API_KEY đã được thiết lập đúng trong biến môi trường.");
-      } else {
-        setError("Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại.");
-      }
+      setError("Đã xảy ra lỗi trong quá trình xử lý. Vui lòng kiểm tra lại API Key và hình ảnh của bạn.");
     } finally {
       setIsLoading(false);
     }
-  }, [imageFile]);
+  }, [imageFile, apiKey]);
 
   const handleDownload = () => {
     if (extractedData.length > 0) {
@@ -66,6 +67,26 @@ const App: React.FC = () => {
             Tải lên hình ảnh chứa bảng dữ liệu (chữ đánh máy hoặc viết tay) để tự động nhận diện và trích xuất thông tin.
           </p>
         </header>
+        
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 mb-8">
+            <h2 className="text-2xl font-semibold mb-4 text-slate-700">Cấu hình API Key</h2>
+            <label htmlFor="api-key" className="block text-sm font-medium text-slate-600 mb-2">
+              Google AI API Key
+            </label>
+            <input
+              id="api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Nhập API Key của bạn vào đây"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              API key của bạn chỉ được lưu trong trình duyệt và không được gửi đi bất cứ đâu.
+              Bạn có thể lấy key tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a>.
+            </p>
+        </div>
+
 
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col">
@@ -81,7 +102,7 @@ const App: React.FC = () => {
             )}
             <button
               onClick={processImage}
-              disabled={!imageFile || isLoading}
+              disabled={!imageFile || isLoading || !apiKey}
               className="mt-6 w-full flex justify-center items-center gap-2 bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
             >
               {isLoading ? (
