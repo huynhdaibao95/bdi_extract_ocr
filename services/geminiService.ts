@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { ExtractedRecord } from '../types';
 
 async function fileToGenerativePart(file: File) {
@@ -13,11 +13,8 @@ async function fileToGenerativePart(file: File) {
   };
 }
 
-export const extractDataFromImage = async (imageFile: File, apiKey: string, prompt: string): Promise<ExtractedRecord[]> => {
-  if (!apiKey) {
-    throw new Error("API key is not provided.");
-  }
-  const ai = new GoogleGenAI({ apiKey: apiKey });
+export const extractDataFromImage = async (imageFile: File, prompt: string): Promise<ExtractedRecord[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const imagePart = await fileToGenerativePart(imageFile);
 
@@ -32,23 +29,30 @@ export const extractDataFromImage = async (imageFile: File, apiKey: string, prom
       },
       config: {
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              stt: {
+                type: Type.STRING,
+                description: "Số thứ tự"
+              },
+              ten: {
+                type: Type.STRING,
+                description: "Họ và tên đầy đủ"
+              },
+              soPhi: {
+                type: Type.STRING,
+                description: "Số tiền phí, có thể bao gồm ký hiệu tiền tệ và dấu phân cách"
+              },
+            },
+          }
+        }
       },
     });
 
-    let jsonText = response.text.trim();
-
-    // Handle cases where the JSON is wrapped in a code block
-    const codeBlockMatch = jsonText.match(/```json\n([\s\S]*)\n```/);
-    if (codeBlockMatch && codeBlockMatch[1]) {
-      jsonText = codeBlockMatch[1];
-    } else {
-        // Fallback to finding the first valid array structure
-        const arrayMatch = jsonText.match(/(\[[\s\S]*\])/);
-        if (arrayMatch && arrayMatch[0]) {
-            jsonText = arrayMatch[0];
-        }
-    }
-
+    const jsonText = response.text;
     const parsedData = JSON.parse(jsonText) as ExtractedRecord[];
     return parsedData;
 

@@ -1,11 +1,10 @@
-
 import React from 'react';
 
 interface IconProps {
   className?: string;
 }
 
-export const LoadingSpinner: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => {
+export function LoadingSpinner({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg
       className={`animate-spin -ml-1 mr-3 ${className} text-white`}

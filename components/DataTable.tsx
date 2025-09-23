@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ExtractedRecord } from '../types';
 
@@ -6,7 +5,7 @@ interface DataTableProps {
   data: ExtractedRecord[];
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data }) => {
+function DataTable({ data }: DataTableProps) {
   if (!data || data.length === 0) {
     return null;
   }

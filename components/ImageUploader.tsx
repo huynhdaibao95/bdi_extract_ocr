@@ -1,11 +1,10 @@
-
 import React, { useCallback, useState } from 'react';
 
 interface ImageUploaderProps {
   onImageUpload: (file: File) => void;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
+function ImageUploader({ onImageUpload }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,12 +52,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
         <p className="mb-2 text-sm text-slate-500">
           <span className="font-semibold">Nhấn để tải lên</span> hoặc kéo thả
         </p>
-        <p className="text-xs text-slate-500">PNG, JPG, JPEG hoặc WEBP</p>
+        <p className="text-xs text-slate-500">PDF, PNG, JPG, JPEG hoặc WEBP</p>
       </div>
       <input
         type="file"
         className="hidden"
-        accept="image/png, image/jpeg, image/webp"
+        accept="image/png, image/jpeg, image/webp, application/pdf"
         onChange={handleFileChange}
       />
     </label>
