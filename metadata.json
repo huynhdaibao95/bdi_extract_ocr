@@ -1,5 +1,5 @@
 {
-  "name": "Trích xuất Dữ liệu OCR Tiếng Việt",
-  "description": "Một ứng dụng web để trích xuất dữ liệu có cấu trúc (STT, Tên, Số phí) từ hình ảnh chứa văn bản tiếng Việt, bao gồm cả chữ viết tay và chữ đánh máy, và cho phép tải xuống dưới dạng tệp Excel.",
+  "name": "Trích xuất & Phân tích Dữ liệu AI",
+  "description": "Một ứng dụng AI đa năng để phân tích hình ảnh và tài liệu PDF. Cho phép trích xuất dữ liệu có cấu trúc ra file Excel hoặc thực hiện các tác vụ phân tích văn bản tùy chỉnh theo yêu cầu.",
   "requestFramePermissions": []
 }

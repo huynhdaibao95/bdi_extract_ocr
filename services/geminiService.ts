@@ -1,5 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { ExtractedRecord } from '../types';
+import { GoogleGenAI } from "@google/genai";
 
 async function fileToGenerativePart(file: File) {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -12,9 +11,14 @@ async function fileToGenerativePart(file: File) {
   };
 }
 
-export const extractDataFromImage = async (imageFile: File, prompt: string): Promise<ExtractedRecord[]> => {
-  console.log("Sử dụng Gemini API mặc định qua Vercel Environment Variables.");
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const extractDataFromImage = async (imageFile: File, prompt: string, apiKey: string): Promise<string> => {
+  const effectiveApiKey = apiKey || process.env.API_KEY;
+
+  if (!effectiveApiKey) {
+    throw new Error("Không tìm thấy API Key. Vui lòng cung cấp key trong Cài đặt Nâng cao hoặc cấu hình biến môi trường.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 
   const imagePart = await fileToGenerativePart(imageFile);
 
@@ -27,44 +31,18 @@ export const extractDataFromImage = async (imageFile: File, prompt: string): Pro
           { text: prompt },
         ],
       },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              stt: {
-                type: Type.STRING,
-                description: "Số thứ tự"
-              },
-              ten: {
-                type: Type.STRING,
-                description: "Họ và tên đầy đủ"
-              },
-              soPhi: {
-                type: Type.STRING,
-                description: "Số tiền phí, có thể bao gồm ký hiệu tiền tệ và dấu phân cách"
-              },
-            },
-          }
-        }
-      },
+      // Bằng cách loại bỏ responseMimeType, chúng ta cho phép AI linh hoạt hơn
+      // trong việc trả về văn bản thuần túy hoặc JSON dựa trên prompt.
     });
 
-    const jsonText = response.text;
-    const parsedData = JSON.parse(jsonText) as ExtractedRecord[];
-    return parsedData;
+    return response.text;
 
   } catch (error) {
-    console.error("Lỗi khi gọi Gemini API hoặc phân tích JSON:", error);
-      if (error instanceof SyntaxError) {
-        throw new Error("Không thể phân tích dữ liệu JSON từ API. Phản hồi có thể không đúng định dạng.");
+    console.error("Lỗi khi gọi Gemini API:", error);
+    
+    if (error instanceof Error && (error.message.includes('API key not valid') || error.message.includes('API_KEY_INVALID'))) {
+        throw new Error("API Key không hợp lệ. Vui lòng kiểm tra lại trong Cài đặt Nâng cao.");
     }
-    // Cung cấp thông báo lỗi rõ ràng hơn cho người dùng
-    if (error instanceof Error && error.message.includes('API key not valid')) {
-        throw new Error("API Key không hợp lệ. Vui lòng kiểm tra lại trong cài đặt Vercel.");
-    }
-    throw new Error("Không thể trích xuất dữ liệu từ API. Hãy kiểm tra lại API Key và cấu hình.");
+    throw new Error("Không thể trích xuất dữ liệu từ API. Hãy kiểm tra kết nối mạng và API Key.");
   }
 };

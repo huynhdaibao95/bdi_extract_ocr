@@ -1,35 +1,34 @@
-
 import { ExtractedRecord } from '../types';
 
 declare var XLSX: any;
 
 export const exportDataToExcel = (data: ExtractedRecord[], filename: string): void => {
   if (!data || data.length === 0) {
-    console.warn("No data to export.");
+    console.warn("Không có dữ liệu để xuất.");
     return;
   }
   
-  const keys = Object.keys(data[0]);
-  const header = keys.map(key => 
-    key.replace(/_/g, ' ')
-       .replace(/([A-Z])/g, ' $1')
-       .replace(/^./, (str) => str.toUpperCase())
-       .trim()
-  );
+  // Dữ liệu đã được xử lý với các tên cột thân thiện, vì vậy chúng ta có thể sử dụng chúng trực tiếp.
+  const headers = Object.keys(data[0]);
+  const worksheet = XLSX.utils.json_to_sheet(data, { header: headers });
   
-  const body = data.map(row => keys.map(key => row[key]));
-  
-  const worksheetData = [header, ...body];
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-  
-  // Auto-calculate column widths based on header and content length
-  const colWidths = keys.map((key, i) => {
+  // Tự động tính toán độ rộng cột dựa trên header và nội dung
+  const colWidths = headers.map((key) => {
+    const columnData = data.map(row => String(row[key] ?? ''));
+    
+    // Tìm độ dài của dòng dài nhất trong một ô có nhiều dòng (ví dụ: cột 'Thông tin khác')
+    const maxLineLength = columnData.reduce((max, cell) => {
+        const lines = cell.split('\n');
+        const currentMax = Math.max(...lines.map(line => line.length));
+        return Math.max(max, currentMax);
+    }, 0);
+
     const maxLength = Math.max(
-      header[i].length, 
-      ...data.map(row => String(row[key] ?? '').length)
+      key.length,
+      maxLineLength,
     );
-    // Set a min width of 10, max of 50 for readability
-    return { wch: Math.min(Math.max(maxLength, 10), 50) }; 
+    // Đặt chiều rộng tối thiểu là 10, tối đa là 60 cho dễ đọc
+    return { wch: Math.min(Math.max(maxLength, 10), 60) }; 
   });
   
   worksheet['!cols'] = colWidths;

@@ -19,7 +19,7 @@ function DataTable({ data }: DataTableProps) {
           <tr>
             {headers.map((header, idx) => (
               <th key={header} scope="col" className={`px-6 py-3 ${idx === 0 ? 'w-16 text-center' : ''}`}>
-                {header.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                {header}
               </th>
             ))}
           </tr>
@@ -28,8 +28,8 @@ function DataTable({ data }: DataTableProps) {
           {data.map((row, index) => (
             <tr key={index} className="bg-white border-b hover:bg-slate-50">
               {headers.map((header, idx) => (
-                <td key={`${header}-${index}`} className={`px-6 py-4 ${idx === 0 ? 'text-center font-medium text-slate-900' : ''}`}>
-                  {String(row[header] ?? '')}
+                <td key={`${header}-${index}`} className={`px-6 py-4 align-top ${idx === 0 ? 'text-center font-medium text-slate-900' : ''}`}>
+                  <span className="whitespace-pre-wrap">{String(row[header] ?? '')}</span>
                 </td>
               ))}
             </tr>

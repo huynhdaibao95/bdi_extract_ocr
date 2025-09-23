@@ -12,14 +12,36 @@ function App() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isPdfRendering, setIsPdfRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const defaultPrompt = `Bạn là một hệ thống OCR chuyên nghiệp cho tài liệu tiếng Việt, bao gồm cả chữ viết tay và chữ đánh máy. Phân tích hình ảnh được cung cấp và trích xuất thông tin sau vào định dạng JSON có cấu trúc: Số thứ tự (STT), Họ và Tên (Tên), và Số tiền phí (Số phí). Đầu ra phải là một mảng JSON các đối tượng, trong đó mỗi đối tượng đại diện cho một hàng trong bảng. Các key cho đối tượng phải là 'stt', 'ten', và 'soPhi'. Xử lý các lỗi OCR tiềm ẩn và sự không nhất quán một cách linh hoạt. Đảm bảo độ chính xác cao cho cả văn bản tiếng Việt viết tay và đánh máy. Nếu một giá trị không thể xác định, hãy để nó là chuỗi rỗng.`;
+  const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ **đánh máy** và chữ **viết tay**.
+Trích xuất dữ liệu thành các cột sau:
+1. Số thứ tự (sử dụng key là "stt")
+2. Họ và tên (sử dụng key là "hoten")
+3. Phí (sử dụng key là "phi", chỉ lấy giá trị số)
+
+**Yêu cầu quan trọng:**
+- **Ưu tiên độ chính xác cao:** Cẩn thận phân biệt các ký tự, đặc biệt là với chữ viết tay có thể khó đọc.
+- **Định dạng đầu ra:** Chỉ trả về kết quả dưới dạng một **mảng JSON** (array of objects).
+- **Loại bỏ nhiễu:** Bỏ qua các dòng không liên quan như tiêu đề, tổng cộng, hoặc các ghi chú khác.`;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [rememberApiKey, setRememberApiKey] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [copyButtonText, setCopyButtonText] = useState<string>('Sao chép');
+
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('userApiKey');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+      setRememberApiKey(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (prompt !== defaultPrompt) {
@@ -29,17 +51,25 @@ function App() {
     }
   }, [prompt, defaultPrompt]);
 
+  useEffect(() => {
+    if (rememberApiKey) {
+      localStorage.setItem('userApiKey', apiKey);
+    } else {
+      localStorage.removeItem('userApiKey');
+    }
+  }, [apiKey, rememberApiKey]);
+
 
   const handleImageUpload = (file: File) => {
-    // Revoke previous object URL if it exists to avoid memory leaks
     if (imageUrl && imageUrl.startsWith('blob:')) {
         URL.revokeObjectURL(imageUrl);
     }
 
     setImageFile(file);
-    setImageUrl(null); // Clear previous image/preview
+    setImageUrl(null); 
     setExtractedData([]);
     setError(null);
+    setAnalysisResult(null);
 
     if (file.type.startsWith('image/')) {
         setImageUrl(URL.createObjectURL(file));
@@ -97,17 +127,39 @@ function App() {
       setError("Vui lòng tải lên một hình ảnh trước.");
       return;
     }
+    
+    const effectiveApiKey = apiKey || process.env.API_KEY;
+    if (!effectiveApiKey) {
+        setError("Vui lòng cung cấp API Key trong phần 'Cài đặt Nâng cao' để tiếp tục.");
+        setShowSettings(true);
+        return;
+    }
 
     setIsLoading(true);
     setError(null);
     setExtractedData([]);
+    setAnalysisResult(null);
 
     try {
-      const data = await extractDataFromImage(imageFile, prompt);
-      if (data && data.length > 0) {
-        setExtractedData(data);
-      } else {
-        setError("Không thể trích xuất dữ liệu từ hình ảnh. Vui lòng thử lại với hình ảnh rõ nét hơn.");
+      const resultText = await extractDataFromImage(imageFile, prompt, apiKey);
+      setAnalysisResult(resultText); 
+
+      if (!resultText) {
+        setError("AI không trả về kết quả nào. Vui lòng thử lại.");
+        return;
+      }
+      
+      try {
+        const cleanedText = resultText.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        const parsed = JSON.parse(cleanedText);
+
+        if (Array.isArray(parsed) && (parsed.length === 0 || (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null))) {
+          setExtractedData(parsed);
+        } else {
+          setExtractedData([]);
+        }
+      } catch (e) {
+        setExtractedData([]);
       }
     } catch (err) {
       console.error(err);
@@ -116,7 +168,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [imageFile, prompt]);
+  }, [imageFile, prompt, apiKey]);
 
   const handleDownload = () => {
     if (extractedData.length > 0) {
@@ -124,15 +176,29 @@ function App() {
     }
   };
 
+  const handleCopyResult = () => {
+    if (analysisResult) {
+        navigator.clipboard.writeText(analysisResult).then(() => {
+            setCopyButtonText('Đã sao chép!');
+            setTimeout(() => setCopyButtonText('Sao chép'), 2000);
+        }).catch(err => {
+            console.error('Không thể sao chép: ', err);
+            setCopyButtonText('Lỗi!');
+            setTimeout(() => setCopyButtonText('Sao chép'), 2000);
+        });
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
       <div className="w-full max-w-5xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-800 tracking-tight">
-            Trích xuất Dữ liệu Tiếng Việt từ Ảnh & PDF
+            Trích xuất & Phân tích Dữ liệu từ Ảnh/PDF
           </h1>
-          <p className="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">
-            Tải lên tệp hình ảnh hoặc PDF chứa bảng dữ liệu (chữ đánh máy hoặc viết tay) để tự động nhận diện và trích xuất thông tin.
+          <p className="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">
+            Tải lên tệp, sử dụng prompt để hướng dẫn AI trích xuất dữ liệu dạng bảng hoặc phân tích nội dung văn bản.
           </p>
         </header>
         
@@ -148,11 +214,51 @@ function App() {
             {showSettings && (
               <div className="mt-4 pt-4 border-t border-slate-200 space-y-6">
                 <div>
+                  <label htmlFor="api-key-input" className="block text-sm font-medium text-slate-700 mb-1">
+                    Google AI API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="api-key-input"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Dán API Key của bạn vào đây"
+                      className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                      aria-label="Google AI API Key"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
+                      aria-label={showApiKey ? 'Ẩn API Key' : 'Hiện API Key'}
+                    >
+                      <i className={`fa-solid ${showApiKey ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center">
+                    <input
+                      id="remember-api-key"
+                      type="checkbox"
+                      checked={rememberApiKey}
+                      onChange={(e) => setRememberApiKey(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    />
+                    <label htmlFor="remember-api-key" className="ml-2 block text-sm text-slate-700">
+                      Ghi nhớ API Key
+                    </label>
+                  </div>
+                  <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-200">
+                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                      <strong>Cảnh báo:</strong> Nếu được ghi nhớ, API Key sẽ lưu trong trình duyệt. Không chia sẻ máy tính này.
+                  </div>
+                </div>
+                <div>
                   <label htmlFor="prompt-input" className="block text-sm font-medium text-slate-700 mb-1">
                     Tùy chỉnh Prompt
                   </label>
                   <p className="text-sm text-slate-500 mb-2">
-                    Chỉnh sửa hướng dẫn cho AI để thay đổi cách nó trích xuất dữ liệu.
+                    Hướng dẫn AI cách trích xuất hoặc phân tích dữ liệu. Đây là chìa khóa để có được kết quả bạn muốn.
                   </p>
                   <textarea
                     id="prompt-input"
@@ -205,7 +311,7 @@ function App() {
               ) : (
                 <>
                   <i className="fa-solid fa-wand-magic-sparkles"></i>
-                  <span>Trích xuất dữ liệu</span>
+                  <span>Phân tích & Trích xuất</span>
                 </>
               )}
             </button>
@@ -214,35 +320,63 @@ function App() {
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-slate-700">2. Kết quả</h2>
-              <button
-                onClick={handleDownload}
-                disabled={extractedData.length === 0 || isLoading}
-                className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-green-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
-              >
-                <i className="fa-solid fa-file-excel"></i>
-                <span>Tải xuống Excel</span>
-              </button>
+              {extractedData.length > 0 && (
+                <button
+                  onClick={handleDownload}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-green-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
+                >
+                  <i className="fa-solid fa-file-excel"></i>
+                  <span>Tải xuống Excel</span>
+                </button>
+              )}
             </div>
 
-            <div className="flex-grow min-h-[300px] border-2 border-dashed border-slate-300 rounded-lg p-4 flex items-center justify-center">
+            <div className="flex-grow flex flex-col min-h-[300px] border-2 border-dashed border-slate-300 rounded-lg p-4">
               {isLoading ? (
-                <div className="text-center text-slate-500">
-                  <LoadingSpinner className="w-10 h-10 mb-4" />
-                  <p>AI đang phân tích tệp...</p>
-                  <p className="text-sm">Quá trình này có thể mất một chút thời gian.</p>
+                <div className="flex-grow flex items-center justify-center text-center text-slate-500">
+                  <div>
+                    <LoadingSpinner className="w-10 h-10 mb-4 mx-auto" />
+                    <p>AI đang phân tích tệp...</p>
+                    <p className="text-sm">Quá trình này có thể mất một chút thời gian.</p>
+                  </div>
                 </div>
               ) : error ? (
-                <div className="text-center text-red-500 bg-red-50 p-4 rounded-lg">
-                  <i className="fa-solid fa-circle-exclamation text-2xl mb-2"></i>
-                  <p className="font-semibold">Lỗi!</p>
-                  <p>{error}</p>
+                <div className="flex-grow flex items-center justify-center text-center text-red-500 bg-red-50 p-4 rounded-lg">
+                  <div>
+                    <i className="fa-solid fa-circle-exclamation text-2xl mb-2"></i>
+                    <p className="font-semibold">Lỗi!</p>
+                    <p>{error}</p>
+                  </div>
                 </div>
               ) : extractedData.length > 0 ? (
-                <DataTable data={extractedData} />
+                <div className="w-full h-full flex flex-col overflow-auto">
+                  <DataTable data={extractedData} />
+                </div>
+              ) : analysisResult ? (
+                 <div className="w-full h-full flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-base font-semibold text-slate-700">Kết quả phân tích</h3>
+                        <button
+                            onClick={handleCopyResult}
+                            className="flex items-center gap-1.5 bg-slate-100 text-slate-600 font-medium py-1 px-2.5 rounded-md hover:bg-slate-200 transition-colors text-xs"
+                            aria-label="Sao chép kết quả"
+                        >
+                            <i className="fa-regular fa-copy"></i>
+                            <span>{copyButtonText}</span>
+                        </button>
+                    </div>
+                    <div className="flex-grow overflow-auto bg-slate-50 border border-slate-200 rounded-md p-3">
+                        <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans">{analysisResult}</pre>
+                    </div>
+                </div>
               ) : (
-                <div className="text-center text-slate-500">
-                  <i className="fa-solid fa-table-list text-4xl mb-3"></i>
-                  <p>Dữ liệu được trích xuất sẽ hiển thị ở đây.</p>
+                <div className="flex-grow flex items-center justify-center text-center text-slate-500">
+                   <div>
+                    <i className="fa-solid fa-table-list text-4xl mb-3"></i>
+                    <p className="font-medium">Kết quả sẽ hiển thị ở đây.</p>
+                    <p className="text-xs mt-2 max-w-xs mx-auto">Nếu kết quả là dữ liệu dạng bảng, bạn sẽ thấy tùy chọn để tải xuống tệp Excel.</p>
+                  </div>
                 </div>
               )}
             </div>
