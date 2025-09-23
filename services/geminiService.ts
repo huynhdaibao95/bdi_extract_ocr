@@ -24,14 +24,12 @@ export const extractDataFromImage = async (imageFile: File, apiKey: string, prom
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: [
-        {
-          parts: [
-            imagePart,
-            { text: prompt },
-          ],
-        },
-      ],
+      contents: {
+        parts: [
+          imagePart,
+          { text: prompt },
+        ],
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {

@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
 import { exportDataToExcel } from './utils/fileUtils';
@@ -8,7 +8,15 @@ import DataTable from './components/DataTable';
 import { LoadingSpinner } from './components/Icons';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
+  const [rememberApiKey, setRememberApiKey] = useState<boolean>(() => {
+    return localStorage.getItem('rememberApiKey') === 'true';
+  });
+  const [apiKey, setApiKey] = useState<string>(() => {
+    if (localStorage.getItem('rememberApiKey') === 'true') {
+      return localStorage.getItem('googleAiApiKey') || '';
+    }
+    return '';
+  });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
@@ -18,6 +26,15 @@ const App: React.FC = () => {
   const defaultPrompt = `Bạn là một hệ thống OCR chuyên nghiệp cho tài liệu tiếng Việt, bao gồm cả chữ viết tay và chữ đánh máy. Phân tích hình ảnh được cung cấp và trích xuất thông tin sau vào định dạng JSON có cấu trúc: Số thứ tự (STT), Họ và Tên (Tên), và Số tiền phí (Số phí). Đầu ra phải là một mảng JSON các đối tượng, trong đó mỗi đối tượng đại diện cho một hàng trong bảng. Các key cho đối tượng phải là 'stt', 'ten', và 'soPhi'. Xử lý các lỗi OCR tiềm ẩn và sự không nhất quán một cách linh hoạt. Đảm bảo độ chính xác cao cho cả văn bản tiếng Việt viết tay và đánh máy. Nếu một giá trị không thể xác định, hãy để nó là chuỗi rỗng.`;
   const [prompt, setPrompt] = useState<string>(defaultPrompt);
   const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
+
+  useEffect(() => {
+    localStorage.setItem('rememberApiKey', String(rememberApiKey));
+    if (rememberApiKey) {
+      localStorage.setItem('googleAiApiKey', apiKey);
+    } else {
+      localStorage.removeItem('googleAiApiKey');
+    }
+  }, [apiKey, rememberApiKey]);
 
   const handleImageUpload = (file: File) => {
     setImageFile(file);
@@ -86,6 +103,18 @@ const App: React.FC = () => {
               placeholder="Nhập API Key của bạn vào đây"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+             <div className="flex items-center mt-3">
+              <input
+                id="remember-key"
+                type="checkbox"
+                checked={rememberApiKey}
+                onChange={(e) => setRememberApiKey(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label htmlFor="remember-key" className="ml-2 block text-sm text-slate-600">
+                Ghi nhớ API Key
+              </label>
+            </div>
             <p className="text-xs text-slate-500 mt-2">
               API key của bạn chỉ được lưu trong trình duyệt và không được gửi đi bất cứ đâu.
               Bạn có thể lấy key tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a>.
