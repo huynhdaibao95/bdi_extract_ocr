@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
@@ -40,7 +39,11 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      setError("Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại.");
+      if (err instanceof Error && err.message === "API key is not configured.") {
+        setError("Lỗi cấu hình: Không tìm thấy API key. Vui lòng đảm bảo rằng API_KEY đã được thiết lập đúng trong biến môi trường.");
+      } else {
+        setError("Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại.");
+      }
     } finally {
       setIsLoading(false);
     }
