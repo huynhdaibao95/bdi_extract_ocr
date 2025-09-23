@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExtractedRecord } from '../types';
 
@@ -14,6 +13,7 @@ async function fileToGenerativePart(file: File) {
 }
 
 export const extractDataFromImage = async (imageFile: File, prompt: string): Promise<ExtractedRecord[]> => {
+  console.log("Sử dụng Gemini API mặc định qua Vercel Environment Variables.");
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const imagePart = await fileToGenerativePart(imageFile);
@@ -58,9 +58,13 @@ export const extractDataFromImage = async (imageFile: File, prompt: string): Pro
 
   } catch (error) {
     console.error("Lỗi khi gọi Gemini API hoặc phân tích JSON:", error);
-     if (error instanceof SyntaxError) {
+      if (error instanceof SyntaxError) {
         throw new Error("Không thể phân tích dữ liệu JSON từ API. Phản hồi có thể không đúng định dạng.");
     }
-    throw new Error("Không thể trích xuất dữ liệu từ API.");
+    // Cung cấp thông báo lỗi rõ ràng hơn cho người dùng
+    if (error instanceof Error && error.message.includes('API key not valid')) {
+        throw new Error("API Key không hợp lệ. Vui lòng kiểm tra lại trong cài đặt Vercel.");
+    }
+    throw new Error("Không thể trích xuất dữ liệu từ API. Hãy kiểm tra lại API Key và cấu hình.");
   }
 };

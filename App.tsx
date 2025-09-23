@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
 import { exportDataToExcel } from './utils/fileUtils';
@@ -17,8 +17,18 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const defaultPrompt = `Bạn là một hệ thống OCR chuyên nghiệp cho tài liệu tiếng Việt, bao gồm cả chữ viết tay và chữ đánh máy. Phân tích hình ảnh được cung cấp và trích xuất thông tin sau vào định dạng JSON có cấu trúc: Số thứ tự (STT), Họ và Tên (Tên), và Số tiền phí (Số phí). Đầu ra phải là một mảng JSON các đối tượng, trong đó mỗi đối tượng đại diện cho một hàng trong bảng. Các key cho đối tượng phải là 'stt', 'ten', và 'soPhi'. Xử lý các lỗi OCR tiềm ẩn và sự không nhất quán một cách linh hoạt. Đảm bảo độ chính xác cao cho cả văn bản tiếng Việt viết tay và đánh máy. Nếu một giá trị không thể xác định, hãy để nó là chuỗi rỗng.`;
-  const [prompt, setPrompt] = useState<string>(defaultPrompt);
-  const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
+
+  const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (prompt !== defaultPrompt) {
+      localStorage.setItem('customPrompt', prompt);
+    } else {
+      localStorage.removeItem('customPrompt');
+    }
+  }, [prompt, defaultPrompt]);
+
 
   const handleImageUpload = (file: File) => {
     // Revoke previous object URL if it exists to avoid memory leaks
@@ -128,31 +138,36 @@ function App() {
         
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 mb-8">
             <button
-              onClick={() => setShowPromptEditor(!showPromptEditor)}
+              onClick={() => setShowSettings(!showSettings)}
               className="w-full flex justify-between items-center text-left text-xl font-semibold text-slate-700"
-              aria-expanded={showPromptEditor}
+              aria-expanded={showSettings}
             >
-              <span>Tùy chỉnh Prompt</span>
-              <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showPromptEditor ? 'rotate-180' : ''}`}></i>
+              <span>Cài đặt Nâng cao</span>
+              <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showSettings ? 'rotate-180' : ''}`}></i>
             </button>
-            {showPromptEditor && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <p className="text-sm text-slate-500 mb-2">
-                  Chỉnh sửa hướng dẫn cho AI để thay đổi cách nó trích xuất dữ liệu.
-                </p>
-                <textarea
-                  id="prompt-input"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={10}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                />
-                <button
-                  onClick={() => setPrompt(defaultPrompt)}
-                  className="mt-2 text-sm text-indigo-600 hover:underline"
-                >
-                  Khôi phục mặc định
-                </button>
+            {showSettings && (
+              <div className="mt-4 pt-4 border-t border-slate-200 space-y-6">
+                <div>
+                  <label htmlFor="prompt-input" className="block text-sm font-medium text-slate-700 mb-1">
+                    Tùy chỉnh Prompt
+                  </label>
+                  <p className="text-sm text-slate-500 mb-2">
+                    Chỉnh sửa hướng dẫn cho AI để thay đổi cách nó trích xuất dữ liệu.
+                  </p>
+                  <textarea
+                    id="prompt-input"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={10}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                  />
+                  <button
+                    onClick={() => setPrompt(defaultPrompt)}
+                    className="mt-2 text-sm text-indigo-600 hover:underline"
+                  >
+                    Khôi phục mặc định
+                  </button>
+                </div>
               </div>
             )}
         </div>
