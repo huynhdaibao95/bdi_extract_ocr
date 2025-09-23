@@ -1,6 +1,4 @@
 
-export interface ExtractedRecord {
-  stt: string | number;
-  ten: string;
-  soPhi: string | number;
-}
+export type ExtractedRecord = {
+  [key: string]: string | number;
+};
