@@ -1,31 +1,29 @@
 
 import { ExtractedRecord } from '../types';
 
-const convertToCSV = (data: ExtractedRecord[]): string => {
-  if (data.length === 0) {
-    return "";
-  }
-  
-  const headers = "STT,Tên,Số phí";
-  const rows = data.map(row => 
-    `"${String(row.stt || '').replace(/"/g, '""')}","${String(row.ten || '').replace(/"/g, '""')}","${String(row.soPhi || '').replace(/"/g, '""')}"`
-  );
-  
-  // BOM for UTF-8 to support Vietnamese characters in Excel
-  const BOM = "\uFEFF";
-  return [BOM + headers, ...rows].join('\n');
-};
+declare var XLSX: any;
 
 export const exportDataToExcel = (data: ExtractedRecord[], filename: string): void => {
-  const csvContent = convertToCSV(data);
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  if (!data || data.length === 0) {
+    console.warn("No data to export.");
+    return;
+  }
+
+  const header = ["STT", "Tên", "Số phí"];
+  const body = data.map(row => [row.stt, row.ten, row.soPhi]);
+  const worksheetData = [header, ...body];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
   
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${filename}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const colWidths = [
+      { wch: 8 }, 
+      { wch: 40 },
+      { wch: 20 }
+  ];
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'DuLieuTrichXuat');
+
+  XLSX.writeFile(workbook, `${filename}.xlsx`, { bookType: 'xlsx', type: 'binary' });
 };

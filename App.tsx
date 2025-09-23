@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
@@ -13,6 +14,10 @@ const App: React.FC = () => {
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const defaultPrompt = `Bạn là một hệ thống OCR chuyên nghiệp cho tài liệu tiếng Việt, bao gồm cả chữ viết tay và chữ đánh máy. Phân tích hình ảnh được cung cấp và trích xuất thông tin sau vào định dạng JSON có cấu trúc: Số thứ tự (STT), Họ và Tên (Tên), và Số tiền phí (Số phí). Đầu ra phải là một mảng JSON các đối tượng, trong đó mỗi đối tượng đại diện cho một hàng trong bảng. Các key cho đối tượng phải là 'stt', 'ten', và 'soPhi'. Xử lý các lỗi OCR tiềm ẩn và sự không nhất quán một cách linh hoạt. Đảm bảo độ chính xác cao cho cả văn bản tiếng Việt viết tay và đánh máy. Nếu một giá trị không thể xác định, hãy để nó là chuỗi rỗng.`;
+  const [prompt, setPrompt] = useState<string>(defaultPrompt);
+  const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
 
   const handleImageUpload = (file: File) => {
     setImageFile(file);
@@ -36,7 +41,7 @@ const App: React.FC = () => {
     setExtractedData([]);
 
     try {
-      const data = await extractDataFromImage(imageFile, apiKey);
+      const data = await extractDataFromImage(imageFile, apiKey, prompt);
       if (data && data.length > 0) {
         setExtractedData(data);
       } else {
@@ -48,7 +53,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [imageFile, apiKey]);
+  }, [imageFile, apiKey, prompt]);
 
   const handleDownload = () => {
     if (extractedData.length > 0) {
@@ -69,7 +74,7 @@ const App: React.FC = () => {
         </header>
         
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-slate-700">Cấu hình API Key</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-slate-700">Cấu hình</h2>
             <label htmlFor="api-key" className="block text-sm font-medium text-slate-600 mb-2">
               Google AI API Key
             </label>
@@ -85,6 +90,37 @@ const App: React.FC = () => {
               API key của bạn chỉ được lưu trong trình duyệt và không được gửi đi bất cứ đâu.
               Bạn có thể lấy key tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a>.
             </p>
+
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <button
+                onClick={() => setShowPromptEditor(!showPromptEditor)}
+                className="w-full flex justify-between items-center text-left text-lg font-semibold text-slate-700"
+                aria-expanded={showPromptEditor}
+              >
+                <span>Tùy chỉnh Prompt</span>
+                <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showPromptEditor ? 'rotate-180' : ''}`}></i>
+              </button>
+              {showPromptEditor && (
+                <div className="mt-4">
+                  <p className="text-sm text-slate-500 mb-2">
+                    Chỉnh sửa hướng dẫn cho AI để thay đổi cách nó trích xuất dữ liệu.
+                  </p>
+                  <textarea
+                    id="prompt-input"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={10}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                  />
+                  <button
+                    onClick={() => setPrompt(defaultPrompt)}
+                    className="mt-2 text-sm text-indigo-600 hover:underline"
+                  >
+                    Khôi phục mặc định
+                  </button>
+                </div>
+              )}
+            </div>
         </div>
 
 
