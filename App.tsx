@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
@@ -20,6 +19,7 @@ const App: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
+  const [rawExtractedText, setRawExtractedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +40,7 @@ const App: React.FC = () => {
     setImageFile(file);
     setImageUrl(URL.createObjectURL(file));
     setExtractedData([]);
+    setRawExtractedText('');
     setError(null);
   };
 
@@ -56,11 +57,13 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setExtractedData([]);
+    setRawExtractedText('');
 
     try {
-      const data = await extractDataFromImage(imageFile, apiKey, prompt);
-      if (data && data.length > 0) {
-        setExtractedData(data);
+      const { parsedData, rawText } = await extractDataFromImage(imageFile, apiKey, prompt);
+      setRawExtractedText(rawText);
+      if (parsedData && parsedData.length > 0) {
+        setExtractedData(parsedData);
       } else {
         setError("Không thể trích xuất dữ liệu từ hình ảnh. Vui lòng thử lại với hình ảnh rõ nét hơn.");
       }
@@ -197,6 +200,18 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            {rawExtractedText && !isLoading && !error && (
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-slate-600 mb-2">Kết quả JSON Thô</h3>
+                    <textarea
+                        readOnly
+                        value={rawExtractedText}
+                        className="w-full h-32 p-2 border border-slate-300 rounded-lg bg-slate-50 font-mono text-xs"
+                        aria-label="Raw JSON output from AI"
+                    />
+                </div>
+            )}
+            
             <div className="flex-grow min-h-[300px] border-2 border-dashed border-slate-300 rounded-lg p-4 flex items-center justify-center">
               {isLoading ? (
                 <div className="text-center text-slate-500">
