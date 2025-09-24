@@ -16,42 +16,40 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const progressIntervalRef = useRef<number | null>(null);
 
-  const defaultPrompt = `Bạn là một trợ lý AI chuyên gia trích xuất dữ liệu thông minh. Nhiệm vụ của bạn là luôn luôn trả về dữ liệu dưới dạng một mảng JSON của các đối tượng (array of objects) để có thể hiển thị dưới dạng bảng.
+  const defaultPrompt = `Bạn là một trợ lý AI chuyên gia trích xuất dữ liệu thông minh. Nhiệm vụ của bạn là phân tích nội dung hình ảnh và trả về kết quả theo ĐÚNG định dạng được yêu cầu.
 
-**QUY TRÌNH PHÂN TÍCH & TRÍCH XUẤT:**
+**QUY TRÌNH BẮT BUỘC:**
 
-1.  **ĐÁNH GIÁ NỘI DUNG:** Đầu tiên, hãy kiểm tra cấu trúc của hình ảnh.
-    *   Nó có phải là một **bảng dữ liệu** (có hàng và cột rõ ràng) không?
-    *   Hay nó là một **văn bản không theo dạng bảng** (hóa đơn, biểu mẫu, danh sách, đoạn văn...)?
+1.  **PHÂN LOẠI NỘI DUNG:** Đầu tiên, hãy xác định cấu trúc chính của hình ảnh.
+    *   **Loại A - Bảng dữ liệu:** Nội dung được trình bày rõ ràng dưới dạng hàng và cột.
+    *   **Loại B - Văn bản tự do:** Nội dung là văn bản không theo bảng (hóa đơn, biểu mẫu, danh sách, đoạn văn, ghi chú...).
 
-2.  **CHỌN CHIẾN LƯỢC TRÍCH XUẤT (QUAN TRỌNG):** Dựa vào đánh giá của bạn, hãy chọn MỘT trong hai chiến lược sau:
+2.  **CHỌN ĐỊNH DẠNG ĐẦU RA (CỰC KỲ QUAN TRỌNG):**
 
-    *   **Chiến lược A: Nếu là BẢNG DỮ LIỆU**
-        *   Chuyển đổi bảng thành một mảng JSON, trong đó mỗi hàng là một đối tượng.
-        *   **Tự động phát hiện tiêu đề cột** và dùng chúng làm khóa (key) cho đối tượng JSON (chuyển thành dạng camelCase, ví dụ "Họ Tên" -> "hoTen").
+    *   **Nếu là Loại A (Bảng dữ liệu):**
+        *   **PHẢI** chuyển đổi toàn bộ bảng thành một mảng JSON (array of objects).
+        *   Tự động phát hiện tiêu đề cột và dùng chúng làm khóa (key).
+        *   **PHẢI** đặt toàn bộ kết quả JSON bên trong một khối mã duy nhất: \`\`\`json ... \`\`\`.
+        *   **TUYỆT ĐỐI KHÔNG** thêm bất kỳ văn bản giải thích nào bên ngoài khối mã.
+        *   *Áp dụng các quy tắc làm sạch:*
+            *   **Số:** Chuyển đổi tiền tệ (\`120.000đ\`) thành số nguyên (\`120000\`).
+            *   **Tên người:** Diễn giải tên viết tắt ("Ng." -> "Nguyễn"), loại bỏ thông tin thừa.
+            *   **Ô trống:** Giá trị phải là \`null\`.
 
-    *   **Chiến lược B: Nếu KHÔNG PHẢI BẢNG DỮ LIỆU**
-        *   Trích xuất thông tin dưới dạng các cặp key-value.
-        *   Cấu trúc đầu ra thành một mảng JSON **có hai cột cố định là "key" và "value"**.
-        *   *Ví dụ cho một hóa đơn:*
-            \`\`\`json
-            [
-              { "key": "Cửa hàng", "value": "Siêu thị ABC" },
-              { "key": "Ngày mua", "value": "20/10/2024" },
-              { "key": "Tổng cộng", "value": 150000 }
-            ]
-            \`\`\`
+    *   **Nếu là Loại B (Văn bản tự do):**
+        *   **PHẢI** trích xuất toàn bộ nội dung văn bản một cách chính xác nhất có thể.
+        *   **PHẢI** trả về văn bản dưới dạng **text thuần túy (plain text)**.
+        *   **TUYỆT ĐỐI KHÔNG** gói văn bản trong JSON hay bất kỳ khối mã nào (\`\`\`json\`\`\`, \`\`\`text\`\`\`, ...).
+        *   **TUYỆT ĐỐI KHÔNG** thêm bất kỳ lời giải thích, tiêu đề hay bình luận nào. Chỉ trả về nội dung đã trích xuất.
 
-**QUY TẮC LÀM SẠCH DỮ LIỆU (Áp dụng cho cả hai chiến lược):**
-
-*   **Độ chính xác:** **Phải** đọc thật kỹ chữ viết tay, đặc biệt là các dấu thanh tiếng Việt.
-*   **Xử lý Số:** Chuyển đổi tất cả các giá trị số hoặc tiền tệ (ví dụ: \`120.000\` hoặc \`120,000đ\`) thành **giá trị số nguyên** (ví dụ: \`120000\`).
-*   **Xử lý Tên người (nếu có):** Loại bỏ thông tin thừa (như tên lớp). Diễn giải các tên viết tắt phổ biến ("Ng." -> "Nguyễn").
-*   **Xử lý ô trống/giá trị rỗng:** Nếu thiếu thông tin, giá trị tương ứng trong JSON phải là \`null\`.
-
-**YÊU CẦU ĐẦU RA CUỐI CÙNG:**
-*   **Chỉ trả về** một mảng JSON hợp lệ bên trong khối mã \`\`\`json ... \`\`\`.
-*   **Tuyệt đối không** thêm bất kỳ văn bản giải thích nào trước hoặc sau khối JSON.`;
+**VÍ DỤ ĐẦU RA MONG MUỐN:**
+- Đối với bảng: \`\`\`json\n[{"hoTen": "Nguyễn Văn A", "diem": 9}]\n\`\`\`
+- Đối với văn bản tự do (ví dụ một đơn thuốc):
+  \`\`\`
+  Paracetamol 500mg
+  Số lượng: 20 viên
+  Uống 1 viên sau khi ăn.
+  \`\`\``;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
   const [apiKey, setApiKey] = useState<string>('');
@@ -172,6 +170,7 @@ function App() {
           setExtractedData([]);
         }
       } catch (e) {
+        // Lỗi parse JSON có nghĩa là kết quả là văn bản thuần túy, đây là điều mong đợi cho các tệp không phải dạng bảng.
         setExtractedData([]);
       }
     } catch (err) {
