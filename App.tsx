@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
 import { exportDataToExcel } from './utils/fileUtils';
@@ -13,6 +13,8 @@ function App() {
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const progressIntervalRef = useRef<number | null>(null);
 
   const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ đánh máy và chữ viết tay.
 Trích xuất dữ liệu từ bảng thành một mảng JSON (array of objects) với các cột sau:
@@ -60,6 +62,15 @@ Nếu ô trống, trả về giá trị null.`;
     }
   }, [apiKey, rememberApiKey]);
 
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, []);
+
 
   const handleImageUpload = (file: File) => {
     if (imageUrl && imageUrl.startsWith('blob:')) {
@@ -96,9 +107,29 @@ Nếu ô trống, trả về giá trị null.`;
     }
 
     setIsLoading(true);
+    setProgress(0);
     setError(null);
     setExtractedData([]);
     setAnalysisResult(null);
+
+    // Clear any existing interval
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+
+    // Start simulated progress
+    progressIntervalRef.current = window.setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 95) {
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
+          }
+          return 95;
+        }
+        return prev + 1;
+      });
+    }, 150); // Increment every 150ms to simulate progress
 
     try {
       const resultText = await extractDataFromImage(imageFile, prompt, apiKey);
@@ -126,7 +157,15 @@ Nếu ô trống, trả về giá trị null.`;
       const errorMessage = err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.";
       setError(`Đã xảy ra lỗi trong quá trình xử lý. ${errorMessage}`);
     } finally {
-      setIsLoading(false);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setProgress(100);
+      
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500); // Wait 500ms to show 100% before hiding
     }
   }, [imageFile, prompt, apiKey]);
 
@@ -297,11 +336,19 @@ Nếu ô trống, trả về giá trị null.`;
 
             <div className="flex-grow flex flex-col min-h-[300px] border-2 border-dashed border-slate-300 rounded-lg p-4">
               {isLoading ? (
-                <div className="flex-grow flex items-center justify-center text-center text-slate-500">
-                  <div>
-                    <LoadingSpinner className="w-10 h-10 mb-4 mx-auto" />
-                    <p>AI đang phân tích tệp...</p>
-                    <p className="text-sm">Quá trình này có thể mất một chút thời gian.</p>
+                <div className="flex-grow flex items-center justify-center text-center text-slate-500 p-4">
+                  <div className="w-full max-w-md">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-base font-medium text-indigo-700">Đang phân tích</span>
+                      <span className="text-sm font-medium text-indigo-700">{progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2.5">
+                      <div
+                        className="bg-indigo-600 h-2.5 rounded-full"
+                        style={{ width: `${progress}%`, transition: 'width 150ms linear' }}>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-3">Quá trình này có thể mất một chút thời gian, vui lòng đợi.</p>
                   </div>
                 </div>
               ) : error ? (
