@@ -24,6 +24,7 @@ Yêu cầu quan trọng:
 Xử lý cột "hoten":
 Chỉ trích xuất tên người. Loại bỏ hoàn toàn thông tin về lớp học (ví dụ: 5A, 4C).
 Đối với các họ viết tắt như "Ng", diễn giải thành "Nguyễn".
+Đối với tên đệm viết tắt như "T.", diễn giải thành "Thị".
 Xử lý cột "phi":
 Chuyển đổi giá trị sang dạng số (ví dụ: 120.000 thành 120000).
 Nếu ô trống, trả về giá trị null.`;
