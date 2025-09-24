@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
@@ -17,16 +18,19 @@ function App() {
   const [isPdfRendering, setIsPdfRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ **đánh máy** và chữ **viết tay**.
-Trích xuất dữ liệu thành các cột sau:
-1. Số thứ tự (sử dụng key là "stt")
-2. Họ và tên (sử dụng key là "hoten")
-3. Phí (sử dụng key là "phi", chỉ lấy giá trị số)
-
-**Yêu cầu quan trọng:**
-- **Ưu tiên độ chính xác cao:** Cẩn thận phân biệt các ký tự, đặc biệt là với chữ viết tay có thể khó đọc.
-- **Định dạng đầu ra:** Chỉ trả về kết quả dưới dạng một **mảng JSON** (array of objects).
-- **Loại bỏ nhiễu:** Bỏ qua các dòng không liên quan như tiêu đề, tổng cộng, hoặc các ghi chú khác.`;
+  const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ đánh máy và chữ viết tay.
+Trích xuất dữ liệu từ bảng thành một mảng JSON (array of objects) với các cột sau:
+stt (Số thứ tự)
+hoten (Họ và tên)
+phi (Phí, chỉ lấy giá trị số)
+Yêu cầu quan trọng:
+Độ chính xác: Đọc thật kỹ chữ viết tay. Hãy đặc biệt cẩn thận với các chữ cái viết tay dễ nhầm lẫn như 'k' và 'th', 'u' và 'v', và các dấu thanh (sắc ´ vs. huyền \`).
+Xử lý cột "hoten":
+Chỉ trích xuất tên người. Loại bỏ hoàn toàn thông tin về lớp học (ví dụ: 5A, 4C).
+Đối với các họ viết tắt như "Ng", diễn giải thành "Nguyễn".
+Xử lý cột "phi":
+Chuyển đổi giá trị sang dạng số (ví dụ: 120.000 thành 120000).
+Nếu ô trống, trả về giá trị null.`;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
   const [apiKey, setApiKey] = useState<string>('');
