@@ -33,7 +33,7 @@ function App() {
         *   **TUYỆT ĐỐI KHÔNG** thêm bất kỳ văn bản giải thích nào bên ngoài khối mã.
         *   *Áp dụng các quy tắc làm sạch:*
             *   **Số:** Chuyển đổi tiền tệ (\`120.000đ\`) thành số nguyên (\`120000\`).
-            *   **Tên người:** Diễn giải tên viết tắt ("Ng." -> "Nguyễn"), loại bỏ thông tin thừa.
+            *   **Tên người:** Diễn giải tên viết tắt (ví dụ: "Ng." -> "Nguyễn", "T." -> "Thị"), loại bỏ thông tin thừa.
             *   **Ô trống:** Giá trị phải là \`null\`.
 
     *   **Nếu là Loại B (Văn bản tự do):**
