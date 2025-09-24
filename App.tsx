@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
@@ -7,15 +6,12 @@ import ImageUploader from './components/ImageUploader';
 import DataTable from './components/DataTable';
 import { LoadingSpinner } from './components/Icons';
 
-declare const pdfjsLib: any;
-
 function App() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[]>([]);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isPdfRendering, setIsPdfRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ đánh máy và chữ viết tay.
@@ -78,48 +74,7 @@ Nếu ô trống, trả về giá trị null.`;
     if (file.type.startsWith('image/')) {
         setImageUrl(URL.createObjectURL(file));
     } else if (file.type === 'application/pdf') {
-        setIsPdfRendering(true);
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                if (!e.target?.result) {
-                    throw new Error("Không thể đọc file PDF.");
-                }
-                const typedarray = new Uint8Array(e.target.result as ArrayBuffer);
-                const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 1.5 });
-                
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-
-                if (!context) {
-                    throw new Error('Không thể tạo canvas context');
-                }
-
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                const renderContext = {
-                    canvasContext: context,
-                    viewport: viewport
-                };
-                await page.render(renderContext).promise;
-                
-                setImageUrl(canvas.toDataURL('image/png'));
-            } catch (pdfError) {
-                console.error("Lỗi khi render PDF:", pdfError);
-                setError("Không thể hiển thị bản xem trước của file PDF. File có thể bị hỏng hoặc không được hỗ trợ.");
-                setImageUrl(null);
-            } finally {
-                setIsPdfRendering(false);
-            }
-        };
-        reader.onerror = () => {
-            setError("Đã xảy ra lỗi khi đọc file.");
-            setIsPdfRendering(false);
-        };
-        reader.readAsArrayBuffer(file);
+        // PDF được chấp nhận, nhưng không tạo bản xem trước.
     } else {
         setError("Định dạng file không được hỗ trợ. Vui lòng tải lên file ảnh hoặc PDF.");
         setImageFile(null);
@@ -287,18 +242,21 @@ Nếu ô trống, trả về giá trị null.`;
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col">
             <h2 className="text-2xl font-semibold mb-4 text-slate-700">1. Tải tệp lên</h2>
             <ImageUploader onImageUpload={handleImageUpload} />
-            { (imageUrl || isPdfRendering) && (
+            { imageFile && (
               <div className="mt-6">
-                <h3 className="text-xl font-semibold mb-3 text-slate-700">Xem trước tệp:</h3>
-                <div className="relative w-full h-80 rounded-lg overflow-hidden border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50">
-                  {isPdfRendering ? (
-                    <div className="text-center text-slate-500">
-                        <LoadingSpinner className="w-8 h-8 mb-3" />
-                        <p>Đang tạo xem trước PDF...</p>
+                <h3 className="text-xl font-semibold mb-3 text-slate-700">Tệp đã chọn:</h3>
+                <div className="relative w-full min-h-[20rem] rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 p-4">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt="Xem trước" className="max-w-full max-h-full object-contain" />
+                  ) : (
+                     <div className="text-center text-slate-500">
+                      <i className="fa-solid fa-file-pdf text-6xl mb-4 text-red-500"></i>
+                      <p className="font-semibold text-slate-700 break-all">{imageFile.name}</p>
+                      <p className="text-sm mt-2">
+                        Xem trước không khả dụng cho file PDF. <br/> Nhấn "Phân tích & Trích xuất" để tiếp tục.
+                      </p>
                     </div>
-                  ) : imageUrl ? (
-                    <img src={imageUrl} alt="Xem trước" className="w-full h-full object-contain" />
-                  ) : null }
+                  )}
                 </div>
               </div>
             )}
