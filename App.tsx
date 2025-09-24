@@ -1,10 +1,12 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { ExtractedRecord } from './types';
 import { extractDataFromImage } from './services/geminiService';
-import { exportDataToExcel } from './utils/fileUtils';
+import { exportDataToExcel, exportDataToWord } from './utils/fileUtils';
 import ImageUploader from './components/ImageUploader';
 import DataTable from './components/DataTable';
 import { LoadingSpinner } from './components/Icons';
+
+declare var marked: any; // Khai báo biến global từ CDN
 
 function App() {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -38,18 +40,18 @@ function App() {
 
     *   **Nếu là Loại B (Văn bản tự do):**
         *   **PHẢI** trích xuất toàn bộ nội dung văn bản một cách chính xác nhất có thể.
-        *   **PHẢI** trả về văn bản dưới dạng **text thuần túy (plain text)**.
-        *   **TUYỆT ĐỐI KHÔNG** gói văn bản trong JSON hay bất kỳ khối mã nào (\`\`\`json\`\`\`, \`\`\`text\`\`\`, ...).
+        *   **PHẢI** giữ nguyên định dạng gốc của văn bản bằng cách sử dụng **Markdown** (ví dụ: dùng \`#\` cho tiêu đề, \`*\` hoặc \`-\` cho danh sách, \`**text**\` cho in đậm).
+        *   **PHẢI** trả về văn bản dưới dạng **text thuần túy có định dạng Markdown**.
+        *   **TUYỆT ĐỐI KHÔNG** gói văn bản trong JSON hay bất kỳ khối mã nào (\`\`\`json\`\`\`, \`\`\`markdown\`\`\`, ...).
         *   **TUYỆT ĐỐI KHÔNG** thêm bất kỳ lời giải thích, tiêu đề hay bình luận nào. Chỉ trả về nội dung đã trích xuất.
 
 **VÍ DỤ ĐẦU RA MONG MUỐN:**
 - Đối với bảng: \`\`\`json\n[{"hoTen": "Nguyễn Văn A", "diem": 9}]\n\`\`\`
 - Đối với văn bản tự do (ví dụ một đơn thuốc):
-  \`\`\`
-  Paracetamol 500mg
-  Số lượng: 20 viên
-  Uống 1 viên sau khi ăn.
-  \`\`\``;
+Paracetamol 500mg
+* Số lượng: 20 viên
+* Uống 1 viên sau khi ăn.
+`;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
   const [apiKey, setApiKey] = useState<string>('');
@@ -153,26 +155,37 @@ function App() {
 
     try {
       const resultText = await extractDataFromImage(imageFile, prompt, apiKey);
-      setAnalysisResult(resultText); 
-
+      
       if (!resultText) {
         setError("AI không trả về kết quả nào. Vui lòng thử lại.");
+        setIsLoading(false);
+        setProgress(100);
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
         return;
       }
       
-      try {
-        const cleanedText = resultText.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        const parsed = JSON.parse(cleanedText);
+      setAnalysisResult(resultText); 
 
-        if (Array.isArray(parsed) && (parsed.length === 0 || (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null))) {
-          setExtractedData(parsed);
-        } else {
-          setExtractedData([]);
+      // Thử phân tích JSON trước
+      try {
+        // Tìm khối mã JSON, ngay cả khi có văn bản khác xung quanh
+        const jsonMatch = resultText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+            const cleanedText = jsonMatch[1].trim();
+            const parsed = JSON.parse(cleanedText);
+
+            if (Array.isArray(parsed) && (parsed.length === 0 || (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null))) {
+              setExtractedData(parsed);
+              return; // Dừng lại vì đã tìm thấy JSON hợp lệ
+            }
         }
       } catch (e) {
-        // Lỗi parse JSON có nghĩa là kết quả là văn bản thuần túy, đây là điều mong đợi cho các tệp không phải dạng bảng.
-        setExtractedData([]);
+        // Nếu parse lỗi, không làm gì cả, vì nó có thể là văn bản thuần túy.
+        // Sẽ xử lý ở bên ngoài khối try-catch này.
       }
+       // Nếu không có khối JSON hợp lệ nào được tìm thấy, toàn bộ kết quả được coi là văn bản.
+      setExtractedData([]);
+
     } catch (err) {
       console.error(err);
       const errorMessage = err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.";
@@ -190,11 +203,28 @@ function App() {
     }
   }, [imageFile, prompt, apiKey]);
 
-  const handleDownload = () => {
+  const handleDownloadExcel = () => {
     if (extractedData.length > 0) {
       exportDataToExcel(extractedData, 'du_lieu_trich_xuat');
     }
   };
+  
+  const analysisResultHtml = useMemo(() => {
+    if (!analysisResult) return '';
+    if (typeof marked === 'undefined') return analysisResult; // Fallback nếu marked chưa tải
+    // Sử dụng tùy chọn sanitize để bảo mật, mặc dù trong trường hợp này rủi ro thấp.
+    marked.setOptions({ sanitize: true }); 
+    return marked.parse(analysisResult);
+  }, [analysisResult]);
+  
+  const handleDownloadWord = () => {
+    if (extractedData.length > 0) {
+      exportDataToWord(extractedData, 'du_lieu_trich_xuat');
+    } else if (analysisResultHtml) {
+      exportDataToWord(analysisResultHtml, 'ket_qua_phan_tich');
+    }
+  };
+
 
   const handleCopyResult = () => {
     if (analysisResult) {
@@ -208,7 +238,6 @@ function App() {
         });
     }
   };
-
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
@@ -343,15 +372,27 @@ function App() {
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-slate-700">2. Kết quả</h2>
-              {extractedData.length > 0 && (
-                <button
-                  onClick={handleDownload}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-green-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
-                >
-                  <i className="fa-solid fa-file-excel"></i>
-                  <span>Tải xuống Excel</span>
-                </button>
+              {(extractedData.length > 0 || analysisResult) && (
+                <div className="flex items-center gap-2">
+                  {extractedData.length > 0 && (
+                    <button
+                      onClick={handleDownloadExcel}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-green-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
+                    >
+                      <i className="fa-solid fa-file-excel"></i>
+                      <span>Excel</span>
+                    </button>
+                  )}
+                  <button
+                      onClick={handleDownloadWord}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-all duration-300 shadow-md disabled:cursor-not-allowed"
+                  >
+                      <i className="fa-solid fa-file-word"></i>
+                      <span>Word</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -397,9 +438,10 @@ function App() {
                             <span>{copyButtonText}</span>
                         </button>
                     </div>
-                    <div className="flex-grow overflow-auto bg-slate-50 border border-slate-200 rounded-md p-3">
-                        <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans">{analysisResult}</pre>
-                    </div>
+                    <div
+                      className="flex-grow overflow-auto bg-slate-50 border border-slate-200 rounded-md p-3 prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: analysisResultHtml }}
+                    />
                 </div>
               ) : (
                 <div className="flex-grow flex items-center justify-center text-center text-slate-500">
