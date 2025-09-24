@@ -16,20 +16,42 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const progressIntervalRef = useRef<number | null>(null);
 
-  const defaultPrompt = `Phân tích hình ảnh, có thể chứa cả chữ đánh máy và chữ viết tay.
-Trích xuất dữ liệu từ bảng thành một mảng JSON (array of objects) với các cột sau:
-stt (Số thứ tự)
-hoten (Họ và tên)
-phi (Phí, chỉ lấy giá trị số)
-Yêu cầu quan trọng:
-Độ chính xác: Đọc thật kỹ chữ viết tay. Hãy đặc biệt cẩn thận với các chữ cái viết tay dễ nhầm lẫn như 'k' và 'th', 'u' và 'v', và các dấu thanh (sắc ´ vs. huyền \`).
-Xử lý cột "hoten":
-Chỉ trích xuất tên người. Loại bỏ hoàn toàn thông tin về lớp học (ví dụ: 5A, 4C).
-Đối với các họ viết tắt như "Ng", diễn giải thành "Nguyễn".
-Đối với tên đệm viết tắt như "T.", diễn giải thành "Thị".
-Xử lý cột "phi":
-Chuyển đổi giá trị sang dạng số (ví dụ: 120.000 thành 120000).
-Nếu ô trống, trả về giá trị null.`;
+  const defaultPrompt = `Bạn là một trợ lý AI chuyên gia trích xuất dữ liệu thông minh. Nhiệm vụ của bạn là luôn luôn trả về dữ liệu dưới dạng một mảng JSON của các đối tượng (array of objects) để có thể hiển thị dưới dạng bảng.
+
+**QUY TRÌNH PHÂN TÍCH & TRÍCH XUẤT:**
+
+1.  **ĐÁNH GIÁ NỘI DUNG:** Đầu tiên, hãy kiểm tra cấu trúc của hình ảnh.
+    *   Nó có phải là một **bảng dữ liệu** (có hàng và cột rõ ràng) không?
+    *   Hay nó là một **văn bản không theo dạng bảng** (hóa đơn, biểu mẫu, danh sách, đoạn văn...)?
+
+2.  **CHỌN CHIẾN LƯỢC TRÍCH XUẤT (QUAN TRỌNG):** Dựa vào đánh giá của bạn, hãy chọn MỘT trong hai chiến lược sau:
+
+    *   **Chiến lược A: Nếu là BẢNG DỮ LIỆU**
+        *   Chuyển đổi bảng thành một mảng JSON, trong đó mỗi hàng là một đối tượng.
+        *   **Tự động phát hiện tiêu đề cột** và dùng chúng làm khóa (key) cho đối tượng JSON (chuyển thành dạng camelCase, ví dụ "Họ Tên" -> "hoTen").
+
+    *   **Chiến lược B: Nếu KHÔNG PHẢI BẢNG DỮ LIỆU**
+        *   Trích xuất thông tin dưới dạng các cặp key-value.
+        *   Cấu trúc đầu ra thành một mảng JSON **có hai cột cố định là "key" và "value"**.
+        *   *Ví dụ cho một hóa đơn:*
+            \`\`\`json
+            [
+              { "key": "Cửa hàng", "value": "Siêu thị ABC" },
+              { "key": "Ngày mua", "value": "20/10/2024" },
+              { "key": "Tổng cộng", "value": 150000 }
+            ]
+            \`\`\`
+
+**QUY TẮC LÀM SẠCH DỮ LIỆU (Áp dụng cho cả hai chiến lược):**
+
+*   **Độ chính xác:** **Phải** đọc thật kỹ chữ viết tay, đặc biệt là các dấu thanh tiếng Việt.
+*   **Xử lý Số:** Chuyển đổi tất cả các giá trị số hoặc tiền tệ (ví dụ: \`120.000\` hoặc \`120,000đ\`) thành **giá trị số nguyên** (ví dụ: \`120000\`).
+*   **Xử lý Tên người (nếu có):** Loại bỏ thông tin thừa (như tên lớp). Diễn giải các tên viết tắt phổ biến ("Ng." -> "Nguyễn").
+*   **Xử lý ô trống/giá trị rỗng:** Nếu thiếu thông tin, giá trị tương ứng trong JSON phải là \`null\`.
+
+**YÊU CẦU ĐẦU RA CUỐI CÙNG:**
+*   **Chỉ trả về** một mảng JSON hợp lệ bên trong khối mã \`\`\`json ... \`\`\`.
+*   **Tuyệt đối không** thêm bất kỳ văn bản giải thích nào trước hoặc sau khối JSON.`;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
   const [apiKey, setApiKey] = useState<string>('');

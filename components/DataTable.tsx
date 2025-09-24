@@ -29,7 +29,8 @@ function DataTable({ data }: DataTableProps) {
             <tr key={index} className="bg-white border-b hover:bg-slate-50">
               {headers.map((header, idx) => (
                 <td key={`${header}-${index}`} className={`px-6 py-4 align-top ${idx === 0 ? 'text-center font-medium text-slate-900' : ''}`}>
-                  <span className="whitespace-pre-wrap">{String(row[header] ?? '')}</span>
+                  {/* Thay thế ký tự xuống dòng bằng khoảng trắng để đảm bảo hiển thị trên một dòng */}
+                  <span>{String(row[header] ?? '').replace(/\n/g, ' ')}</span>
                 </td>
               ))}
             </tr>
