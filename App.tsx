@@ -54,19 +54,36 @@ Paracetamol 500mg
 `;
 
   const [prompt, setPrompt] = useState<string>(() => localStorage.getItem('customPrompt') || defaultPrompt);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [rememberApiKey, setRememberApiKey] = useState<boolean>(false);
+  const defaultApiKey = 'AIzaSyChdfjFjSdb9gkOXH7VgwkNAmdMdf2ZlU4';
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('userApiKey') || defaultApiKey);
+  const [rememberApiKey, setRememberApiKey] = useState<boolean>(() => !!localStorage.getItem('userApiKey'));
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [copyButtonText, setCopyButtonText] = useState<string>('Sao chép');
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [isPasswordCorrect, setIsPasswordCorrect] = useState<boolean>(false);
+  const advancedPassword = '5330511';
 
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('userApiKey');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-      setRememberApiKey(true);
+  // Xử lý password cho cài đặt nâng cao
+  const handlePasswordCheck = () => {
+    if (passwordInput === advancedPassword) {
+      setIsPasswordCorrect(true);
+      setShowAdvancedSettings(true);
+      setPasswordInput('');
+    } else {
+      alert('Mật khẩu không chính xác!');
+      setPasswordInput('');
     }
-  }, []);
+  };
+
+  const handleAdvancedSettingsToggle = () => {
+    if (!isPasswordCorrect) {
+      setShowAdvancedSettings(!showAdvancedSettings);
+    } else {
+      setShowAdvancedSettings(!showAdvancedSettings);
+    }
+  };
 
   useEffect(() => {
     if (prompt !== defaultPrompt) {
@@ -77,12 +94,15 @@ Paracetamol 500mg
   }, [prompt, defaultPrompt]);
 
   useEffect(() => {
-    if (rememberApiKey) {
+    if (rememberApiKey && apiKey !== defaultApiKey) {
       localStorage.setItem('userApiKey', apiKey);
-    } else {
+    } else if (!rememberApiKey) {
       localStorage.removeItem('userApiKey');
+      if (!apiKey) {
+        setApiKey(defaultApiKey);
+      }
     }
-  }, [apiKey, rememberApiKey]);
+  }, [apiKey, rememberApiKey, defaultApiKey]);
 
   // Cleanup interval on component unmount
   useEffect(() => {
@@ -121,7 +141,7 @@ Paracetamol 500mg
       return;
     }
     
-    const effectiveApiKey = apiKey || process.env.API_KEY;
+    const effectiveApiKey = apiKey;
     if (!effectiveApiKey) {
         setError("Vui lòng cung cấp API Key trong phần 'Cài đặt Nâng cao' để tiếp tục.");
         setShowSettings(true);
@@ -257,72 +277,125 @@ Paracetamol 500mg
               className="w-full flex justify-between items-center text-left text-xl font-semibold text-slate-700"
               aria-expanded={showSettings}
             >
-              <span>Cài đặt Nâng cao</span>
+              <span>Cài đặt</span>
               <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showSettings ? 'rotate-180' : ''}`}></i>
             </button>
             {showSettings && (
               <div className="mt-4 pt-4 border-t border-slate-200 space-y-6">
                 <div>
-                  <label htmlFor="api-key-input" className="block text-sm font-medium text-slate-700 mb-1">
-                    Google AI API Key
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="api-key-input"
-                      type={showApiKey ? 'text' : 'password'}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Dán API Key của bạn vào đây"
-                      className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                      aria-label="Google AI API Key"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
-                      aria-label={showApiKey ? 'Ẩn API Key' : 'Hiện API Key'}
-                    >
-                      <i className={`fa-solid ${showApiKey ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="api-key-input" className="block text-sm font-medium text-slate-700">
+                      API Key Google Gemini
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setApiKey(defaultApiKey);
+                          setRememberApiKey(false);
+                        }}
+                        className="text-sm text-green-600 hover:underline"
+                      >
+                        Mặc định
+                      </button>
+                      <button
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="text-sm text-indigo-600 hover:underline"
+                      >
+                        {showApiKey ? "Ẩn" : "Hiển thị"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-2 flex items-center">
+                  <input
+                    id="api-key-input"
+                    type={showApiKey ? "text" : "password"}
+                    placeholder="Nhập API Key của bạn hoặc sử dụng mặc định..."
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <div className="flex items-center mt-3">
                     <input
                       id="remember-api-key"
                       type="checkbox"
                       checked={rememberApiKey}
                       onChange={(e) => setRememberApiKey(e.target.checked)}
-                      className="h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
                     <label htmlFor="remember-api-key" className="ml-2 block text-sm text-slate-700">
-                      Ghi nhớ API Key
+                      Ghi nhớ API Key tùy chỉnh
                     </label>
                   </div>
-                  <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-200">
+                  {apiKey === defaultApiKey ? (
+                    <div className="mt-2 text-xs text-green-600 bg-green-50 p-2 rounded-md border border-green-200">
+                      <i className="fa-solid fa-check-circle mr-1"></i>
+                      <strong>Đang sử dụng API Key mặc định.</strong> Bạn có thể nhập API Key riêng để sử dụng.
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-200">
                       <i className="fa-solid fa-triangle-exclamation mr-1"></i>
                       <strong>Cảnh báo:</strong> Nếu được ghi nhớ, API Key sẽ lưu trong trình duyệt. Không chia sẻ máy tính này.
-                  </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Cài đặt nâng cao */}
                 <div>
-                  <label htmlFor="prompt-input" className="block text-sm font-medium text-slate-700 mb-1">
-                    Tùy chỉnh Prompt
-                  </label>
-                  <p className="text-sm text-slate-500 mb-2">
-                    Hướng dẫn AI cách trích xuất hoặc phân tích dữ liệu. Đây là chìa khóa để có được kết quả bạn muốn.
-                  </p>
-                  <textarea
-                    id="prompt-input"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={10}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                  />
                   <button
-                    onClick={() => setPrompt(defaultPrompt)}
-                    className="mt-2 text-sm text-indigo-600 hover:underline"
+                    onClick={handleAdvancedSettingsToggle}
+                    className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
                   >
-                    Khôi phục mặc định
+                    <i className={`fa-solid ${showAdvancedSettings ? 'fa-chevron-down' : 'fa-chevron-right'}`}></i>
+                    Cài đặt nâng cao
                   </button>
+                  
+                  {showAdvancedSettings && !isPasswordCorrect && (
+                    <div className="mt-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <label htmlFor="password-input" className="block text-sm font-medium text-slate-700 mb-2">
+                        Nhập mật khẩu để truy cập cài đặt nâng cao:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="password-input"
+                          type="password"
+                          placeholder="Mật khẩu..."
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handlePasswordCheck()}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <button
+                          onClick={handlePasswordCheck}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          Xác nhận
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
+                {isPasswordCorrect && (
+                  <div>
+                    <label htmlFor="prompt-input" className="block text-sm font-medium text-slate-700 mb-1">
+                      Tùy chỉnh Prompt
+                    </label>
+                    <p className="text-sm text-slate-500 mb-2">
+                      Hướng dẫn AI cách trích xuất hoặc phân tích dữ liệu. Đây là chìa khóa để có được kết quả bạn muốn.
+                    </p>
+                    <textarea
+                      id="prompt-input"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      rows={10}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    />
+                    <button
+                      onClick={() => setPrompt(defaultPrompt)}
+                      className="mt-2 text-sm text-indigo-600 hover:underline"
+                    >
+                      Khôi phục mặc định
+                    </button>
+                  </div>
+                )}
               </div>
             )}
         </div>
